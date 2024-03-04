@@ -1,6 +1,6 @@
 {
   "name": "MQTT2elfin COMMAX Wallpad Controller with Python",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "slug": "commax_mqtt2elfin_python",
   "url": "https://github.com/kimtc99/HAaddon",
   "description": "mqtt 통신을 활용한 코맥스 월패드 컨트롤러",
