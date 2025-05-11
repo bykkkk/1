@@ -150,16 +150,25 @@ def do_work(config, device_list):
     def make_device_info(dev_name):
         num = device_list[dev_name].get('Number', 0)
         if num > 0:
-            arr = [ {cmd + onoff: make_hex(k, device_list[dev_name].get(cmd + onoff), device_list[dev_name].get(cmd + 'NUM'))
-                           for cmd in ['command', 'state'] for onoff in ['ON', 'OFF']} for k in range(num) ]
+        arr = []
+        for i in range(num):
+            hex_index = format(i + 1, 'X')  # 1부터 시작하는 16진수 (1~9, A, B)
+            single_device = {}
+            for cmd in ['command', 'state']:
+                for onoff in ['ON', 'OFF']:
+                    base_hex = device_list[dev_name].get(cmd + onoff)
+                    change_pos = device_list[dev_name].get(cmd + 'NUM')
+                    if base_hex and change_pos:
+                        mod_hex = f"{base_hex[:change_pos - 1]}{hex_index}{base_hex[change_pos:]}"
+                        single_device[cmd + onoff] = checksum(mod_hex)
             if dev_name == 'fan':
-                tmp_hex = arr[0]['stateON']
+                tmp_hex = single_device['stateON']
                 change = device_list[dev_name].get('speedNUM')
-                arr[0]['stateON'] = [make_hex(k, tmp_hex, change) for k in range(3)]
+                single_device['stateON'] = [make_hex(k, tmp_hex, change) for k in range(3)]
                 tmp_hex = device_list[dev_name].get('commandCHANGE')
-                arr[0]['CHANGE'] = [make_hex(k, tmp_hex, change) for k in range(3)]
-            
-            return {'type': device_list[dev_name]['type'], 'list': arr}
+                single_device['CHANGE'] = [make_hex(k, tmp_hex, change) for k in range(3)]
+            arr.append(single_device)
+        return {'type': device_list[dev_name]['type'], 'list': arr}
         else:
             return None
 
