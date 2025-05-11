@@ -1,4 +1,3 @@
-# commax_fixed.py
 import paho.mqtt.client as mqtt
 import json
 import time
@@ -151,9 +150,10 @@ def do_work(config, device_list):
                 if dev_name.lower() == 'fan':
                     single_device['commandOFF'] = device_list[dev_name].get('commandOFF')
                     single_device['commandON'] = device_list[dev_name].get('commandON')
-                    single_device['commandCHANGE'] = device_list[dev_name].get('commandCHANGE')
+                    single_device['commandCHANGE'] = device_list[dev_name].get('commandCHANGE', [])
+                    stateON = device_list[dev_name].get('stateON')
+                    single_device['stateON'] = stateON if isinstance(stateON, list) else [stateON]
                     single_device['stateOFF'] = device_list[dev_name].get('stateOFF')
-                    single_device['stateON'] = device_list[dev_name].get('stateON')
                 elif dev_name.lower() in ['lightbreaker', 'gas']:
                     for key in ['commandON', 'commandOFF', 'stateON', 'stateOFF']:
                         single_device[key] = device_list[dev_name].get(key)
@@ -239,8 +239,7 @@ def do_work(config, device_list):
                     elif device == 'Fan':
                         if topics[2] == 'power':
                             sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value)
-                            recvcmd = DEVICE_LISTS[device]['list'][idx-1].get('state' + value) if value == 'ON' else [
-                                DEVICE_LISTS[device]['list'][idx-1].get('state' + value)]
+                            recvcmd = [DEVICE_LISTS[device]['list'][idx-1].get('state' + value)]
                             QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
                             if debug:
                                 log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
@@ -248,7 +247,7 @@ def do_work(config, device_list):
                             speed_list = ['LOW', 'MEDIUM', 'HIGH']
                             if value in speed_list:
                                 index = speed_list.index(value)
-                                sendcmd = DEVICE_LISTS[device]['list'][idx-1]['CHANGE'][index]
+                                sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
                                 recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
                                 QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
                                 if debug:
@@ -303,11 +302,12 @@ def do_work(config, device_list):
                 await update_state(device_name, index, onoff)
                 await update_temperature(index, curT, setT)
             elif device_name == 'Fan':
-                if data in DEVICE_LISTS['Fan']['list'][0]['stateON']:
-                    speed = DEVICE_LISTS['Fan']['list'][0]['stateON'].index(data)
+                stateON_list = DEVICE_LISTS['Fan']['list'][0].get('stateON', [])
+                if data in stateON_list:
+                    speed = stateON_list.index(data)
                     await update_state('Fan', 0, 'ON')
                     await update_fan(0, speed)
-                elif data == DEVICE_LISTS['Fan']['list'][0]['stateOFF']:
+                elif data == DEVICE_LISTS['Fan']['list'][0].get('stateOFF'):
                     await update_state('Fan', 0, 'OFF')
                 else:
                     log(f"[WARNING] <{device_name}> 기기의 신호를 찾음: {data}")
@@ -360,24 +360,13 @@ def do_work(config, device_list):
 
     async def update_fan(idx, speed):
         deviceID = 'Fan' + str(idx + 1)
-        if isinstance(speed, int):
-            speed_list = ['low', 'medium', 'high']
-            speed = speed_list[speed]
-            state = 'speed'
-        else:
-            state = 'power'
-        key = deviceID + state
-
-        if speed != HOMESTATE.get(key):
-            HOMESTATE[key] = speed
-            topic = STATE_TOPIC.format(deviceID, state)
-            mqtt_client.publish(topic, speed.encode())
+        speed_list = ['low', 'medium', 'high']
+        if isinstance(speed, int) and 0 <= speed < len(speed_list):
+            speed_str = speed_list[speed]
+            topic = STATE_TOPIC.format(deviceID, 'speed')
+            mqtt_client.publish(topic, speed_str.encode())
             if mqtt_log:
-                log('[LOG] ->> HA : {} >> {}'.format(topic, speed))
-        else:
-            if debug:
-                log('[DEBUG] {} is already set: {}'.format(deviceID, speed))
-        return
+                log(f'[LOG] ->> HA : {topic} >> {speed_str}')
 
     async def update_temperature(idx, curTemp, setTemp):
         deviceID = 'Thermo' + str(idx + 1)
