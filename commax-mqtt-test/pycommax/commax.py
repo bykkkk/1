@@ -180,7 +180,6 @@ def make_device_info(dev_name):
         else:
             return None
 
-
     DEVICE_LISTS = {}
     for name in device_list:
         device_info = make_device_info(name)
