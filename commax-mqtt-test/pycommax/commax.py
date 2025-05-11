@@ -152,25 +152,35 @@ def do_work(config, device_list):
         if num > 0:
             arr = []
             for i in range(num):
-                hex_index = format(i + 1, 'X')  # 1부터 시작하는 16진수 (1~9, A, B)
                 single_device = {}
-                for cmd in ['command', 'state']:
-                    for onoff in ['ON', 'OFF']:
-                        base_hex = device_list[dev_name].get(cmd + onoff)
-                        change_pos = device_list[dev_name].get(cmd + 'NUM')
-                        if base_hex and change_pos:
-                            mod_hex = f"{base_hex[:change_pos - 1]}{hex_index}{base_hex[change_pos:]}"
-                            single_device[cmd + onoff] = checksum(mod_hex)
+
                 if dev_name == 'fan':
-                    tmp_hex = single_device['stateON']
-                    change = device_list[dev_name].get('speedNUM')
-                    single_device['stateON'] = [make_hex(k, tmp_hex, change) for k in range(3)]
-                    tmp_hex = device_list[dev_name].get('commandCHANGE')
-                    single_device['CHANGE'] = [make_hex(k, tmp_hex, change) for k in range(3)]
+                    single_device['commandOFF'] = device_list[dev_name].get('commandOFF')
+                    single_device['commandON'] = device_list[dev_name].get('commandON')
+                    single_device['commandCHANGE'] = device_list[dev_name].get('commandCHANGE')  # already a list
+                    single_device['stateOFF'] = device_list[dev_name].get('stateOFF')
+                    single_device['stateON'] = device_list[dev_name].get('stateON')  # already a list
+                elif dev_name == 'Lightbreaker' or dev_name == 'gas':
+                    single_device['commandOFF'] = device_list[dev_name].get('commandOFF')
+                    single_device['commandON'] = device_list[dev_name].get('commandON')
+                    single_device['stateOFF'] = device_list[dev_name].get('stateOFF')
+                    single_device['stateON'] = device_list[dev_name].get('stateON')
+                else:
+                    for cmd in ['command', 'state']:
+                        for onoff in ['ON', 'OFF']:
+                            base_hex = device_list[dev_name].get(cmd + onoff)
+                            change_pos = device_list[dev_name].get(cmd + 'NUM')
+                            if base_hex and change_pos:
+                                hex_index = format(i + 1, 'X')
+                                mod_hex = f"{base_hex[:change_pos - 1]}{hex_index}{base_hex[change_pos:]}"
+                                single_device[cmd + onoff] = checksum(mod_hex)
+
                 arr.append(single_device)
+
             return {'type': device_list[dev_name]['type'], 'list': arr}
         else:
             return None
+
 
     DEVICE_LISTS = {}
     for name in device_list:
