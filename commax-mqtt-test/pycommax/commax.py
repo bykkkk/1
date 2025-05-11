@@ -148,35 +148,34 @@ def do_work(config, device_list):
                 return None
 
     def make_device_info(dev_name):
-        num = device_list[dev_name].get('Number', 0)
-        if num > 0:
-            arr = []
-            for i in range(num):
-                single_device = {}
-
-                if dev_name == 'fan':
-                    single_device['commandOFF'] = device_list[dev_name].get('commandOFF')
-                    single_device['commandON'] = device_list[dev_name].get('commandON')
-                    single_device['commandCHANGE'] = device_list[dev_name].get('commandCHANGE')  # already a list
-                    single_device['stateOFF'] = device_list[dev_name].get('stateOFF')
-                    single_device['stateON'] = device_list[dev_name].get('stateON')  # already a list
-                elif dev_name == 'Lightbreaker' or dev_name == 'gas':
-                    single_device['commandOFF'] = device_list[dev_name].get('commandOFF')
-                    single_device['commandON'] = device_list[dev_name].get('commandON')
-                    single_device['stateOFF'] = device_list[dev_name].get('stateOFF')
-                    single_device['stateON'] = device_list[dev_name].get('stateON')
-                else:
-                    for cmd in ['command', 'state']:
-                        for onoff in ['ON', 'OFF']:
-                            base_hex = device_list[dev_name].get(cmd + onoff)
-                            change_pos = device_list[dev_name].get(cmd + 'NUM')
-                            if base_hex and change_pos:
-                                hex_index = format(i + 1, 'X')
-                                mod_hex = f"{base_hex[:change_pos - 1]}{hex_index}{base_hex[change_pos:]}"
-                                single_device[cmd + onoff] = checksum(mod_hex)
-
-                arr.append(single_device)
-
+    num = device_list[dev_name].get('Number', 0)
+    if num > 0:
+        arr = []
+        for i in range(num):
+            single_device = {}
+            if dev_name.lower() == 'fan':
+                single_device['commandOFF'] = device_list[dev_name].get('commandOFF')
+                single_device['commandON'] = device_list[dev_name].get('commandON')
+                single_device['commandCHANGE'] = device_list[dev_name].get('commandCHANGE')
+                single_device['stateOFF'] = device_list[dev_name].get('stateOFF')
+                single_device['stateON'] = device_list[dev_name].get('stateON')
+            elif dev_name.lower() in ['lightbreaker', 'gas']:
+                for key in ['commandON', 'commandOFF', 'stateON', 'stateOFF']:
+                    single_device[key] = device_list[dev_name].get(key)
+            else:
+                hex_index = format(i + 1, 'X')
+                for cmd in ['command', 'state']:
+                    for onoff in ['ON', 'OFF']:
+                        base_hex = device_list[dev_name].get(cmd + onoff)
+                        change_pos = device_list[dev_name].get(cmd + 'NUM')
+                        if base_hex and change_pos:
+                            mod_hex = f"{base_hex[:change_pos - 1]}{hex_index}{base_hex[change_pos:]}"
+                            single_device[cmd + onoff] = checksum(mod_hex)
+            arr.append(single_device)
+        return {'type': device_list[dev_name]['type'], 'list': arr}
+    else:
+        return None
+            
             return {'type': device_list[dev_name]['type'], 'list': arr}
         else:
             return None
