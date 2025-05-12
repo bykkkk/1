@@ -40,7 +40,7 @@ def find_device(config):
 
     target_time = time.time() + 20
 
-    def on_connect(client, userdata, flags, rc):
+    def on_connect(client, userdata, flags, rc, properties=None):
         userdata = time.time() + 20
         if rc == 0:
             log("Connected to MQTT broker..")
