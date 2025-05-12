@@ -245,19 +245,19 @@ def do_work(config, device_list):
                                 log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
                         elif topics[2] == 'speed':
                              speed_list = ['low', 'medium', 'high']
-                              value = value.lower()
-                              if value in speed_list:
-                                  index = speed_list.index(value)
-                                  try:
-                                      sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
-                                      recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
-                                      QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                                      if debug:
-                                          log('[DEBUG] Fan speed change queued: {} => {}'.format(sendcmd, recvcmd))
-                                  except Exception as e:
-                                      log(f"[ERROR] 팬 속도 변경 실패: {e}")
-                              else:
-                                  log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
+                             value = value.lower()
+                             if value in speed_list:
+                                 index = speed_list.index(value)
+                                 try:
+                                     sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
+                                     recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
+                                     QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                                     if debug:
+                                         log('[DEBUG] Fan speed change queued: {} => {}'.format(sendcmd, recvcmd))
+                                 except Exception as e:
+                                     log(f"[ERROR] 팬 속도 변경 실패: {e}")
+                             else:
+                                 log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
                     else:
                         sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value)
                         if sendcmd:
