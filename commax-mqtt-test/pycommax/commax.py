@@ -245,6 +245,8 @@ def do_work(config, device_list):
                                 log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
                         elif topics[2] == 'speed':
                             speed_map = {'LOW': 2, 'MEDIUM': 1, 'HIGH': 0}
+                            value = value.lower()
+                            
                             if value in speed_list:
                                 index = speed_list.index(value)
                                 sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
