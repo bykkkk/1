@@ -437,6 +437,7 @@ def do_work(config, device_list):
                             "mode_state_template": "{% set modes = {'OFF': 'off', 'ON': 'heat'} %} {{modes[value] if value in modes.keys() else 'off'}}"
                         }
                     elif DEVICE_LISTS[device]["type"] == "fan":
+                        config_topic = f'homeassistant/fan/commax_{device.lower()}{idx + 1}/config'
                         payload = {
                             "device": {
                                 "identifiers": "commax",
@@ -452,6 +453,7 @@ def do_work(config, device_list):
                             "payload_off": "OFF",
                             "payload_on": "ON"
                         }
+                        mqtt_client.publish(config_topic, json.dumps(payload))
                     else:
                         payload = {
                             "device": {
