@@ -305,6 +305,7 @@ def do_work(config, device_list):
                 stateON_list = DEVICE_LISTS['Fan']['list'][0].get('stateON', [])
                 if data in stateON_list:
                     speed = stateON_list.index(data)  # 0: High, 1: Medium, 2: Low
+                    await update_state('Fan', 0, 'ON')  # 추가: 상태를 ON으로 갱신
                     await update_fan(0, speed)
                     log(f"[DEBUG] 수신된 패킷: {data} → 속도: {['high', 'medium', 'low'][speed]}")
                 elif data == DEVICE_LISTS['Fan']['list'][0].get('stateOFF'):
