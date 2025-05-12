@@ -200,7 +200,7 @@ def do_work(config, device_list):
         if mqtt_log:
             log('[LOG] HA ->> : {} -> {}'.format('/'.join(topics), value))
 
-        device = re.sub(r'\d+', '', topics[1])
+        device = re.sub(r'\d+', '', topics[1]).lower()
 
         if device in DEVICE_LISTS:
             key = topics[1] + topics[2]
