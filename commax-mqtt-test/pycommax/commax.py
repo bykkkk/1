@@ -404,7 +404,7 @@ def do_work(config, device_list):
         if debug:
             log('[LOG] ->> HA : {} -> {}'.format(topic, val))
 
-    def on_connect(client, userdata, flags, rc):
+    def on_connect(client, userdata, flags, rc,  properties=None):
         if rc == 0:
             log("MQTT 접속 중..")
             client.subscribe([(HA_TOPIC + '/#', 0), (ELFIN_TOPIC + '/recv', 0), (ELFIN_TOPIC + '/send', 1)])
