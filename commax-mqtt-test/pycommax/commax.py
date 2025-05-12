@@ -244,7 +244,7 @@ def do_work(config, device_list):
                             if debug:
                                 log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
                         elif topics[2] == 'speed':
-                            speed_list = ['LOW', 'MEDIUM', 'HIGH']
+                            speed_map = {'LOW': 2, 'MEDIUM': 1, 'HIGH': 0}
                             if value in speed_list:
                                 index = speed_list.index(value)
                                 sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
@@ -304,9 +304,9 @@ def do_work(config, device_list):
             elif device_name == 'Fan':
                 stateON_list = DEVICE_LISTS['Fan']['list'][0].get('stateON', [])
                 if data in stateON_list:
-                    speed = stateON_list.index(data)
-                    await update_state('Fan', 0, 'ON')
+                    speed = stateON_list.index(data)  # 0: High, 1: Medium, 2: Low
                     await update_fan(0, speed)
+                    log(f"[DEBUG] 수신된 패킷: {data} → 속도: {['high', 'medium', 'low'][speed]}")
                 elif data == DEVICE_LISTS['Fan']['list'][0].get('stateOFF'):
                     await update_state('Fan', 0, 'OFF')
                 else:
