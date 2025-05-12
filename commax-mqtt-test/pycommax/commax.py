@@ -365,6 +365,7 @@ def do_work(config, device_list):
             speed_str = speed_list[speed]
             topic = STATE_TOPIC.format(deviceID, 'speed')
             mqtt_client.publish(topic, speed_str.encode())
+            log(f'[DEBUG] 속도 업데이트 발행: {topic} -> {speed_str}') 
             if mqtt_log:
                 log(f'[LOG] ->> HA : {topic} >> {speed_str}')
 
