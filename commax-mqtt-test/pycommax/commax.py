@@ -436,6 +436,22 @@ def do_work(config, device_list):
                             "modes":["off", "heat"],
                             "mode_state_template": "{% set modes = {'OFF': 'off', 'ON': 'heat'} %} {{modes[value] if value in modes.keys() else 'off'}}"
                         }
+                    elif DEVICE_LISTS[device]["type"] == "fan":
+                        payload = {
+                            "device": {
+                                "identifiers": "commax",
+                                "name": "코맥스 월패드",
+                                "manufacturer": "commax",
+                            },
+                            "name": f"{device}{idx+1}",
+                            "unique_id": f"commax_{device.lower()}{idx + 1}",
+                            "command_topic": f"{HA_TOPIC}/{device}{idx+1}/power/command",
+                            "speed_command_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/command",
+                            "speed_state_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/state",
+                            "speeds": ["low", "medium", "high"],
+                            "payload_off": "OFF",
+                            "payload_on": "ON"
+                        }
                     else:
                         payload = {
                             "device": {
