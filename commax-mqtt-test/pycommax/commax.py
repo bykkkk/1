@@ -200,6 +200,94 @@ def do_work(config, device_list):
         if mqtt_log:
             log('[LOG] HA ->> : {} -> {}'.format('/'.join(topics), value))
 
+        device_raw = topics[1]  # 예: "Fan1"
+        device = re.sub(r'\d+', '', device_raw)  # 예: "Fan"
+        idx = int(''.join(re.findall(r'\d+', topics[1])))  # "Fan1" → 1
+
+    
+        matched_device_key = None
+        for dev in DEVICE_LISTS.keys():
+            if dev.lower() == device.lower():
+                matched_device_key = dev
+                break
+
+        if not matched_device_key:
+            if debug:
+                log(f"[DEBUG] DEVICE_LISTS에 {device} 없음. 현재 키: {list(DEVICE_LISTS.keys())}")
+            return
+
+        device = matched_device_key  # 올바른 키로 교체
+        key = topics[1] + topics[2]
+        value = value.lower()
+
+        cur_state = HOMESTATE.get(key)
+        if cur_state and value.upper() == cur_state:
+            if debug:
+                log('[DEBUG] {} is already set: {}'.format(key, value))
+            return
+
+        if device == 'Thermo':
+            curTemp = HOMESTATE.get(topics[1] + 'curTemp')
+            setTemp = HOMESTATE.get(topics[1] + 'setTemp')
+            if topics[2] == 'power':
+                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, value.upper())
+                recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'state' + value.upper())]
+                if sendcmd:
+                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                    if debug:
+                        log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+            elif topics[2] == 'setTemp':
+                try:
+                    value = int(float(value))
+                    if value != int(setTemp):
+                        setTemp = value
+                        sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'CHANGE')
+                        recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateON')]
+                        if sendcmd:
+                            QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                            if debug:
+                                log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+                except ValueError:
+                    log(f"[WARNING] Invalid temperature value: {value}")
+
+        elif device == 'Fan':
+            if topics[2] == 'power':
+                sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value.upper())
+                recvcmd = [DEVICE_LISTS[device]['list'][idx-1].get('state' + value.upper())]
+                if sendcmd:
+                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                    if debug:
+                        log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+            elif topics[2] == 'speed':
+                speed_list = ['low', 'medium', 'high']
+                if value in speed_list:
+                    index = speed_list.index(value)
+                    try:
+                        sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
+                        recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
+                        QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                        if debug:
+                            log('[DEBUG] Fan speed change queued: {} => {}'.format(sendcmd, recvcmd))
+                    except Exception as e:
+                        log(f"[ERROR] 팬 속도 변경 실패: {e}")
+                else:
+                    log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
+
+        else:
+            sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value.upper())
+            if sendcmd:
+                recvcmd = [DEVICE_LISTS[device]['list'][idx-1].get('state' + value.upper(), 'NULL')]
+                QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                if debug:
+                    log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+            else:
+                if debug:
+                    log('[DEBUG] There is no command for {}'.format('/'.join(topics)))         
+        
+        
+        if mqtt_log:
+            log('[LOG] HA ->> : {} -> {}'.format('/'.join(topics), value))
+
         device = re.sub(r'\d+', '', topics[1]).lower()
 
         if device in DEVICE_LISTS:
