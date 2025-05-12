@@ -449,9 +449,9 @@ def do_work(config, device_list):
                             "unique_id": f"commax_{device.lower()}{idx + 1}",
                             "command_topic": f"{HA_TOPIC}/{device}{idx+1}/power/command",
                             "state_topic": f"{HA_TOPIC}/{device}{idx+1}/power/state",
-                            "speed_command_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/command",
-                            "speed_state_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/state",
-                            "speeds": ["low", "medium", "high"],
+                            "preset_mode_command_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/command",
+                            "preset_mode_state_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/state",
+                            "preset_modes": ["low", "medium", "high"],
                             "payload_off": "OFF",
                             "payload_on": "ON"
                         }
