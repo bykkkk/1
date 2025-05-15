@@ -176,7 +176,11 @@ def do_work(config, device_list):
         device_info = make_device_info(name, device_list)
         if device_info:
             DEVICE_LISTS[name] = device_info
-
+    if 'EV' in device_list:
+        DEVICE_LISTS['EV'] = {
+            'type': 'switch',
+            'list': [device_list['EV']]
+        }
     prefix_list = {}
     log('----------------------')
     log('등록된 기기 목록 DEVICE_LISTS..')
@@ -189,6 +193,10 @@ def do_work(config, device_list):
         log(f'{name}: {DEVICE_LISTS[name]["type"]}')
         log(f' >>>> {DEVICE_LISTS[name]["list"]}')
     log('----------------------')
+
+    if 'EV' in device_list and 'stateON' in device_list['EV']:
+        ev_prefix = device_list['EV']['stateON'][:2]
+        prefix_list[ev_prefix] = 'EV'
 
     HOMESTATE = {}
     QUEUE = []
