@@ -269,7 +269,7 @@ def do_work(config, device_list):
             elif topics[2] == 'speed':
                 try:
                     # percentage 기반 속도 설정
-                    percent = int(value)
+                    percent = round(float(value))
                     if percent <= 34:
                         index = 0  # 약
                     elif percent <= 66:
