@@ -271,11 +271,11 @@ def do_work(config, device_list):
                     # percentage 기반 속도 설정
                     percent = int(value)
                     if percent <= 34:
-                        index = 2  # 약
+                        index = 0  # 약
                     elif percent <= 66:
                         index = 1  # 중
                     else:
-                        index = 0  # 강
+                        index = 2  # 강
 
                     sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
                     recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
