@@ -267,6 +267,7 @@ def do_work(config, device_list):
                         log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
 
             elif topics[2] == 'speed':
+                log(f"[DEBUG] 받은 speed value: {value} (type: {type(value)})")
                 try:
                     # percentage 기반 속도 설정
                     percent = round(float(value))
