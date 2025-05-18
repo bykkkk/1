@@ -204,6 +204,9 @@ def do_work(config, device_list):
     if find_signal:
         log('[LOG] 50개의 신호를 수집 중..')
 
+    def map_percent_to_index(percent):
+        return max(0, min(2, percent - 1))
+
     async def recv_from_HA(topics, value):
         if mqtt_log:
             log('[LOG] HA ->> : {} -> {}'.format('/'.join(topics), value))
@@ -267,37 +270,18 @@ def do_work(config, device_list):
                         log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
 
             elif topics[2] == 'speed':
-                log(f"[DEBUG] 받은 speed value: {value} (type: {type(value)})")
                 try:
-                    # percentage 기반 속도 설정
-                    percent = round(float(value))
-                    if percent <= 34:
-                        index = 0  # 약
-                    elif percent <= 66:
-                        index = 1  # 중
-                    else:
-                        index = 2  # 강
+                log(f"[DEBUG] 받은 speed value: {value} (type: {type(value)})")
+                percent = int(value)  # ← 이제 확실히 1~3임을 알고 있음
+                index = max(0, min(2, percent - 1))  # 1 → 0, 2 → 1, 3 → 2
 
-                    sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
-                    recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
-                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                    if debug:
-                        log(f"[DEBUG] Percentage speed set: {percent}% → index {index} → send: {sendcmd}")
-
-                except ValueError:
-                    # 기존 preset_mode 스타일(low/medium/high)이 들어올 경우 대응
-                    speed_list = ['low', 'medium', 'high']
-                    value_lower = value.lower()
-                    if value_lower in speed_list:
-                        index = speed_list.index(value_lower)
-                        try:
-                            sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
-                            recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
-                            QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                            if debug:
-                                log('[DEBUG] Fan speed change queued: {} => {}'.format(sendcmd, recvcmd))
-                        except Exception as e:
-                            log(f"[ERROR] 팬 속도 변경 실패: {e}")
+                sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
+                recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
+                QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                if debug:
+                    log(f"[DEBUG] Speed set (1~3): {percent} → index {index} → send: {sendcmd}")
+            except Exception as e:
+                log(f"[ERROR] 팬 speed 처리 실패: {value} → {e}")
                     else:
                         log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
 
