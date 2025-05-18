@@ -257,7 +257,6 @@ def do_work(config, device_list):
                                 log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
                 except ValueError:
                     log(f"[WARNING] Invalid temperature value: {value}")
-
         elif device == 'Fan':
             if topics[2] == 'power':
                 sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value.upper())
@@ -266,20 +265,41 @@ def do_work(config, device_list):
                     QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
                     if debug:
                         log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+
             elif topics[2] == 'speed':
-                speed_list = ['low', 'medium', 'high']
-                if value in speed_list:
-                    index = speed_list.index(value)
-                    try:
-                        sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
-                        recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
-                        QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                        if debug:
-                            log('[DEBUG] Fan speed change queued: {} => {}'.format(sendcmd, recvcmd))
-                    except Exception as e:
-                        log(f"[ERROR] 팬 속도 변경 실패: {e}")
-                else:
-                    log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
+                try:
+                    # percentage 기반 속도 설정
+                    percent = int(value)
+                    if percent <= 34:
+                        index = 2  # 약
+                    elif percent <= 66:
+                        index = 1  # 중
+                    else:
+                        index = 0  # 강
+
+                    sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
+                    recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
+                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                    if debug:
+                        log(f"[DEBUG] Percentage speed set: {percent}% → index {index} → send: {sendcmd}")
+
+                except ValueError:
+                    # 기존 preset_mode 스타일(low/medium/high)이 들어올 경우 대응
+                    speed_list = ['low', 'medium', 'high']
+                    value_lower = value.lower()
+                    if value_lower in speed_list:
+                        index = speed_list.index(value_lower)
+                        try:
+                            sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
+                            recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
+                            QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                            if debug:
+                                log('[DEBUG] Fan speed change queued: {} => {}'.format(sendcmd, recvcmd))
+                        except Exception as e:
+                            log(f"[ERROR] 팬 속도 변경 실패: {e}")
+                    else:
+                        log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
+
 
         else:
             sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value.upper())
