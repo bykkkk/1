@@ -271,19 +271,19 @@ def do_work(config, device_list):
 
             elif topics[2] == 'speed':
                 try:
-                log(f"[DEBUG] 받은 speed value: {value} (type: {type(value)})")
-                percent = int(value)  # ← 이제 확실히 1~3임을 알고 있음
-                index = max(0, min(2, percent - 1))  # 1 → 0, 2 → 1, 3 → 2
+                    log(f"[DEBUG] 받은 speed value: {value} (type: {type(value)})")
+                    percent = int(value)  # ← 이제 확실히 1~3임을 알고 있음
+                    index = max(0, min(2, percent - 1))  # 1 → 0, 2 → 1, 3 → 2
 
-                sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
-                recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
-                QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                if debug:
-                    log(f"[DEBUG] Speed set (1~3): {percent} → index {index} → send: {sendcmd}")
-            except Exception as e:
-                log(f"[ERROR] 팬 speed 처리 실패: {value} → {e}")
-                    else:
-                        log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
+                    sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
+                    recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
+                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                    if debug:
+                        log(f"[DEBUG] Speed set (1~3): {percent} → index {index} → send: {sendcmd}")
+                except Exception as e:
+                    log(f"[ERROR] 팬 speed 처리 실패: {value} → {e}")
+                else:
+                    log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
 
 
         else:
