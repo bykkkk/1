@@ -204,8 +204,8 @@ def do_work(config, device_list):
     if find_signal:
         log('[LOG] 50개의 신호를 수집 중..')
 
-    def map_percent_to_index(percent):
-        return max(0, min(2, percent - 1))
+    # 기존 map_percent_to_index 함수는 사용하지 않음.
+    # 팬 속도 백분율을 인덱스(0,1,2)로 매핑하는 새로운 로직을 recv_from_HA에 추가.
 
     async def recv_from_HA(topics, value):
         if mqtt_log:
@@ -269,30 +269,40 @@ def do_work(config, device_list):
                     if debug:
                         log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
 
-            elif topics[2] == 'speed':
+            elif topics[2] == 'speed': # Home Assistant에서 백분율(0-100)로 넘어옴
                 try:
-                    log(f"[DEBUG] 받은 speed value: {value} (type: {type(value)})")
-                    percent = int(value)  # ← 이제 확실히 1~3임을 알고 있음
-                  
+                    percent = int(value)
+                    
                     if percent == 0:
-                        # 전원 끄기 신호로 처리
+                        # 0%는 전원 끄기 신호로 처리
                         sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('commandOFF')
                         recvcmd = [DEVICE_LISTS[device]['list'][idx-1].get('stateOFF')]
-                        QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
                         if debug:
-                            log(f"[DEBUG] 퍼센트 0% 수신 → 전원 OFF 처리")
+                            log(f"[DEBUG] Fan speed {percent}% (OFF) -> send: {sendcmd}")
                     else:
-                        index = map_percent_to_index(percent)
+                        # 백분율을 내부 속도 인덱스(0:High, 1:Medium, 2:Low)로 매핑
+                        # 이 임계값은 실제 팬의 동작에 맞춰 조정 가능
+                        if percent >= 75: 
+                            index = 0  # High
+                        elif percent >= 40:
+                            index = 1  # Medium
+                        else:
+                            index = 2  # Low
+
+                        # commandCHANGE는 [High, Medium, Low] 순서라고 가정
                         sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
                         recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
-                        QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
                         if debug:
-                            log(f"[DEBUG] Speed set (1~3): {percent} → index {index} → send: {sendcmd}")
+                            log(f"[DEBUG] Fan speed {percent}% (index {index}) -> send: {sendcmd}")
+
+                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
 
                 except Exception as e:
                     log(f"[ERROR] 팬 speed 처리 실패: {value} → {e}")
-                else:
-                    log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
+            else:
+                # preset_mode 또는 다른 알 수 없는 팬 명령에 대한 처리
+                if debug:
+                    log(f"[DEBUG] 알 수 없는 팬 명령: {topics[2]} with value: {value}")
 
 
         else:
@@ -306,85 +316,9 @@ def do_work(config, device_list):
                 if debug:
                     log('[DEBUG] There is no command for {}'.format('/'.join(topics)))         
         
+        # 중복된 코드 블록 제거 (하단 동일 로직 삭제)
+        # 이전에 두 번 처리되던 로직을 한 번만 처리하도록 정리
         
-        if mqtt_log:
-            log('[LOG] HA ->> : {} -> {}'.format('/'.join(topics), value))
-
-        device = re.sub(r'\d+', '', topics[1]).lower()
-
-        if device in DEVICE_LISTS:
-            key = topics[1] + topics[2]
-            idx = int(''.join(re.findall('\d', topics[1])))
-            cur_state = HOMESTATE.get(key)
-            value = 'ON' if value == 'heat' else value.upper()
-            if cur_state:
-                if value == cur_state:
-                    if debug:
-                        log('[DEBUG] {} is already set: {}'.format(key, value))
-                else:
-                    if device == 'Thermo':
-                        curTemp = HOMESTATE.get(topics[1] + 'curTemp')
-                        setTemp = HOMESTATE.get(topics[1] + 'setTemp')
-                        if topics[2] == 'power':
-                            sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, value)
-                            recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'state' + value)]
-                            if sendcmd:
-                                QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                                if debug:
-                                    log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
-                        elif topics[2] == 'setTemp':
-                            value = int(float(value))
-                            if value == int(setTemp):
-                                if debug:
-                                    log('[DEBUG] {} is already set: {}'.format(topics[1], value))
-                            else:
-                                setTemp = value
-                                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'CHANGE')
-                                recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateON')]
-                                if sendcmd:
-                                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                                    if debug:
-                                        log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
-
-                    elif device == 'Fan':
-                        if topics[2] == 'power':
-                            sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value)
-                            recvcmd = [DEVICE_LISTS[device]['list'][idx-1].get('state' + value)]
-                            QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                            if debug:
-                                log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
-                        elif topics[2] == 'speed':
-                             speed_list = ['low', 'medium', 'high']
-                             value = value.lower()
-                             if value in speed_list:
-                                 index = speed_list.index(value)
-                                 try:
-                                     sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
-                                     recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
-                                     QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                                     if debug:
-                                         log('[DEBUG] Fan speed change queued: {} => {}'.format(sendcmd, recvcmd))
-                                 except Exception as e:
-                                     log(f"[ERROR] 팬 속도 변경 실패: {e}")
-                             else:
-                                 log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
-                    else:
-                        sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value)
-                        if sendcmd:
-                            recvcmd = [DEVICE_LISTS[device]['list'][idx-1].get('state' + value, 'NULL')]
-                            QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                            if debug:
-                                log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
-                        else:
-                            if debug:
-                                log('[DEBUG] There is no command for {}'.format('/'.join(topics)))
-            else:
-                if debug:
-                    log('[DEBUG] There is no command about {}'.format('/'.join(topics)))
-        else:
-            if debug:
-                log('[DEBUG] There is no command for {}'.format('/'.join(topics)))
-
     async def slice_raw_data(raw_data):
         if elfin_log:
             log('[SIGNAL] receved: {}'.format(raw_data))
@@ -417,14 +351,18 @@ def do_work(config, device_list):
                 await update_state(device_name, index, onoff)
                 await update_temperature(index, curT, setT)
             elif device_name == 'Fan':
+                # Fan 속도 상태를 업데이트할 때, 수신된 패킷이 어떤 속도(High, Medium, Low)에 해당하는지 확인
                 stateON_list = DEVICE_LISTS['Fan']['list'][0].get('stateON', [])
                 if data in stateON_list:
-                    speed = stateON_list.index(data)  # 0: High, 1: Medium, 2: Low
-                    await update_state('Fan', 0, 'ON')  # 추가: 상태를 ON으로 갱신
-                    await update_fan(0, speed)
-                    log(f"[DEBUG] 수신된 패킷: {data} → 속도: {['high', 'medium', 'low'][speed]}")
+                    # stateON_list의 순서는 High, Medium, Low 순서라고 가정
+                    speed_index = stateON_list.index(data) # 0:High, 1:Medium, 2:Low
+                    await update_state('Fan', 0, 'ON')  # 팬이 켜졌음을 상태 업데이트
+                    await update_fan(0, speed_index) # speed_index (0, 1, 2)를 update_fan에 전달
+                    log(f"[DEBUG] 수신된 패킷: {data} → 속도 인덱스: {speed_index}")
                 elif data == DEVICE_LISTS['Fan']['list'][0].get('stateOFF'):
                     await update_state('Fan', 0, 'OFF')
+                    # 팬이 꺼지면 속도도 0%로 설정
+                    await update_fan(0, -1) # -1은 OFF 상태를 나타내기 위한 임시 값
                 else:
                     log(f"[WARNING] <{device_name}> 기기의 신호를 찾음: {data}")
                     log('[WARNING] 기기목록에 등록되지 않는 패킷입니다. JSON 파일을 확인하세요..')
@@ -474,29 +412,36 @@ def do_work(config, device_list):
                 log('[DEBUG] {} is already set: {}'.format(deviceID, onoff))
         return
 
-    async def update_fan(idx, speed):
+    async def update_fan(idx, speed_index):
         deviceID = 'Fan' + str(idx + 1)
-        speed_list = ['low', 'medium', 'high']
+        
+        # speed_index가 -1이면 팬이 꺼진 상태
+        if speed_index == -1:
+            percent_value = 0
+            preset_mode_str = "off"
+        else:
+            # speed_index (0:High, 1:Medium, 2:Low)를 백분율 및 프리셋 모드 문자열로 매핑
+            # Home Assistant에서 표시되는 값에 맞춰 백분율 조정 가능
+            percent_map = {0: 100, 1: 67, 2: 33} # 예시: High 100%, Medium 67%, Low 33%
+            speed_list_str = ["high", "medium", "low"] # 프리셋 모드 문자열
 
-        if isinstance(speed, int) and 0 <= speed < len(speed_list):
-            # 프리셋 문자열 발행 (원하면 유지 가능)
-            speed_str = speed_list[speed]
-            preset_topic = STATE_TOPIC.format(deviceID, 'preset_mode')
-            mqtt_client.publish(preset_topic, speed_str.encode(), retain=True)
+            percent_value = percent_map.get(speed_index, 33) # 기본값 Low 33%
+            preset_mode_str = speed_list_str[speed_index]
 
-            log(f'[DEBUG] 프리셋 발행: {preset_topic} -> {speed_str}')
-            if mqtt_log:
-                log(f'[LOG] ->> HA : {preset_topic} >> {speed_str}')
+        # 프리셋 모드 발행
+        preset_topic = STATE_TOPIC.format(deviceID, 'preset_mode')
+        mqtt_client.publish(preset_topic, preset_mode_str.encode(), retain=True)
+        if mqtt_log:
+            log(f'[LOG] ->> HA : {preset_topic} >> {preset_mode_str}')
 
-            # 퍼센트 발행 (전용 토픽으로)
-            percent_map = {0: 100, 1: 67, 2: 33}
-            percent_value = percent_map.get(speed, 33)
+        # 백분율 발행
+        percent_topic = f"{HA_TOPIC}/Fan{idx+1}/percentage/state"
+        mqtt_client.publish(percent_topic, str(percent_value).encode(), retain=True)
+        if mqtt_log:
+            log(f'[LOG] ->> HA : {percent_topic} >> {percent_value}')
 
-            percent_topic = f"{HA_TOPIC}/Fan{idx+1}/percentage/state"
-            mqtt_client.publish(percent_topic, str(percent_value).encode(), retain=True)
-            log(f'[DEBUG] 퍼센트 발행: {percent_topic} -> {percent_value}')
-            if mqtt_log:
-                log(f'[LOG] ->> HA : {percent_topic} >> {percent_value}')
+        if debug:
+            log(f'[DEBUG] Fan {deviceID} state updated: Power: {HOMESTATE.get(deviceID + "power")}, Speed: {preset_mode_str} ({percent_value}%)')
 
     async def update_temperature(idx, curTemp, setTemp):
         deviceID = 'Thermo' + str(idx + 1)
@@ -579,10 +524,10 @@ def do_work(config, device_list):
                             "state_topic": f"{HA_TOPIC}/{device}{idx+1}/power/state",
                             "percentage_command_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/command",
                             "percentage_state_topic": f"{HA_TOPIC}/{device}{idx+1}/percentage/state",  # ✅ 퍼센트 전용
-                            "preset_mode_state_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/state",       # ✅ 문자열용 (선택)
+                            "preset_mode_state_topic": f"{HA_TOPIC}/{device}{idx+1}/preset_mode/state", # preset_mode_state_topic 변경
                             "preset_modes": ["low", "medium", "high"],
                             "speed_range_min": 1,
-                            "speed_range_max": 3,
+                            "speed_range_max": 100, # 속도 범위를 1-100%로 변경
                             "payload_on": "ON",
                             "payload_off": "OFF"
                         }
@@ -638,7 +583,8 @@ def do_work(config, device_list):
                 asyncio.run(recv_from_HA(topics, msg.payload.decode('utf-8')))
             elif topics[0] == ELFIN_TOPIC and topics[-1] == 'recv':
                 asyncio.run(slice_raw_data(msg.payload.hex().upper()))
-        except:
+        except Exception as e:
+            log(f"[ERROR] on_message processing failed: {e}")
             pass
 
     async def send_to_elfin():
