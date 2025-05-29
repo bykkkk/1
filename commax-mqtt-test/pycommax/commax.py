@@ -482,7 +482,7 @@ def do_work(config, device_list):
             # 프리셋 문자열 발행 (원하면 유지 가능)
             speed_str = speed_list[speed]
             preset_topic = STATE_TOPIC.format(deviceID, 'preset_mode')
-            mqtt_client.publish(preset_topic, speed_str.encode())
+            mqtt_client.publish(preset_topic, speed_str.encode(), retain=True)
 
             log(f'[DEBUG] 프리셋 발행: {preset_topic} -> {speed_str}')
             if mqtt_log:
@@ -493,7 +493,7 @@ def do_work(config, device_list):
             percent_value = percent_map.get(speed, 33)
 
             percent_topic = f"{HA_TOPIC}/Fan{idx+1}/percentage/state"
-            mqtt_client.publish(percent_topic, str(percent_value).encode())
+            mqtt_client.publish(percent_topic, str(percent_value).encode(), retain=True)
             log(f'[DEBUG] 퍼센트 발행: {percent_topic} -> {percent_value}')
             if mqtt_log:
                 log(f'[LOG] ->> HA : {percent_topic} >> {percent_value}')
