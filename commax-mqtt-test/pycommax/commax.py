@@ -478,22 +478,23 @@ def do_work(config, device_list):
         deviceID = 'Fan' + str(idx + 1)
         speed_list = ['low', 'medium', 'high']
         if isinstance(speed, int) and 0 <= speed < len(speed_list):
+            # 프리셋 문자열은 프리셋용 토픽으로 따로 발행하고 싶다면 아래 유지
             speed_str = speed_list[speed]
-            topic = STATE_TOPIC.format(deviceID, 'speed')
-
-            # 🔵 프리셋 모드용 문자열 발행
-            mqtt_client.publish(topic, speed_str.encode())
-            log(f'[DEBUG] 속도 업데이트 발행: {topic} -> {speed_str}')
+            preset_topic = STATE_TOPIC.format(deviceID, 'preset_mode')  # 예: commax/Fan1/preset_mode/state
+            mqtt_client.publish(preset_topic, speed_str.encode())
+            log(f'[DEBUG] 프리셋 문자열 발행: {preset_topic} -> {speed_str}')
             if mqtt_log:
-                log(f'[LOG] ->> HA : {topic} >> {speed_str}')
+                log(f'[LOG] ->> HA : {preset_topic} >> {speed_str}')
 
-            # 🔵 percentage 모드용 숫자값 발행 (1~3)
-            speed_map = {0: 3, 1: 2, 2: 1}  # 강 → 3, 중 → 2, 약 → 1
-            percent_value = speed_map.get(speed, 1)
-            mqtt_client.publish(topic, str(percent_value).encode())
-            log(f'[DEBUG] 퍼센트 업데이트 발행: {topic} -> {percent_value}')
+            # 퍼센트 값 매핑 (강=100, 중=67, 약=33)
+            percent_map = {0: 100, 1: 67, 2: 33}
+            percent_value = percent_map.get(speed, 33)
+
+            percent_topic = STATE_TOPIC.format(deviceID, 'speed')  # 예: commax/Fan1/speed/state
+            mqtt_client.publish(percent_topic, str(percent_value).encode())
+            log(f'[DEBUG] 퍼센트 발행: {percent_topic} -> {percent_value}')
             if mqtt_log:
-                log(f'[LOG] ->> HA : {topic} >> {percent_value}')
+                log(f'[LOG] ->> HA : {percent_topic} >> {percent_value}')
 
     async def update_temperature(idx, curTemp, setTemp):
         deviceID = 'Thermo' + str(idx + 1)
