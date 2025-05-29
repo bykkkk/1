@@ -273,13 +273,22 @@ def do_work(config, device_list):
                 try:
                     log(f"[DEBUG] 받은 speed value: {value} (type: {type(value)})")
                     percent = int(value)  # ← 이제 확실히 1~3임을 알고 있음
-                    index = max(0, min(2, percent - 1))  # 1 → 0, 2 → 1, 3 → 2
+                  
+                    if percent == 0:
+                        # 전원 끄기 신호로 처리
+                        sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('commandOFF')
+                        recvcmd = [DEVICE_LISTS[device]['list'][idx-1].get('stateOFF')]
+                        QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                        if debug:
+                            log(f"[DEBUG] 퍼센트 0% 수신 → 전원 OFF 처리")
+                    else:
+                        index = map_percent_to_index(percent)
+                        sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
+                        recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
+                        QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                        if debug:
+                            log(f"[DEBUG] Speed set (1~3): {percent} → index {index} → send: {sendcmd}")
 
-                    sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
-                    recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
-                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                    if debug:
-                        log(f"[DEBUG] Speed set (1~3): {percent} → index {index} → send: {sendcmd}")
                 except Exception as e:
                     log(f"[ERROR] 팬 speed 처리 실패: {value} → {e}")
                 else:
@@ -471,10 +480,20 @@ def do_work(config, device_list):
         if isinstance(speed, int) and 0 <= speed < len(speed_list):
             speed_str = speed_list[speed]
             topic = STATE_TOPIC.format(deviceID, 'speed')
+
+            # 🔵 프리셋 모드용 문자열 발행
             mqtt_client.publish(topic, speed_str.encode())
-            log(f'[DEBUG] 속도 업데이트 발행: {topic} -> {speed_str}') 
+            log(f'[DEBUG] 속도 업데이트 발행: {topic} -> {speed_str}')
             if mqtt_log:
                 log(f'[LOG] ->> HA : {topic} >> {speed_str}')
+
+            # 🔵 percentage 모드용 숫자값 발행 (1~3)
+            speed_map = {0: 3, 1: 2, 2: 1}  # 강 → 3, 중 → 2, 약 → 1
+            percent_value = speed_map.get(speed, 1)
+            mqtt_client.publish(topic, str(percent_value).encode())
+            log(f'[DEBUG] 퍼센트 업데이트 발행: {topic} -> {percent_value}')
+            if mqtt_log:
+                log(f'[LOG] ->> HA : {topic} >> {percent_value}')
 
     async def update_temperature(idx, curTemp, setTemp):
         deviceID = 'Thermo' + str(idx + 1)
