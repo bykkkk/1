@@ -477,20 +477,22 @@ def do_work(config, device_list):
     async def update_fan(idx, speed):
         deviceID = 'Fan' + str(idx + 1)
         speed_list = ['low', 'medium', 'high']
+
         if isinstance(speed, int) and 0 <= speed < len(speed_list):
-            # 프리셋 문자열은 프리셋용 토픽으로 따로 발행하고 싶다면 아래 유지
+            # 프리셋 문자열 발행 (원하면 유지 가능)
             speed_str = speed_list[speed]
-            preset_topic = STATE_TOPIC.format(deviceID, 'preset_mode')  # 예: commax/Fan1/preset_mode/state
+            preset_topic = STATE_TOPIC.format(deviceID, 'preset_mode')
             mqtt_client.publish(preset_topic, speed_str.encode())
-            log(f'[DEBUG] 프리셋 문자열 발행: {preset_topic} -> {speed_str}')
+
+            log(f'[DEBUG] 프리셋 발행: {preset_topic} -> {speed_str}')
             if mqtt_log:
                 log(f'[LOG] ->> HA : {preset_topic} >> {speed_str}')
 
-            # 퍼센트 값 매핑 (강=100, 중=67, 약=33)
+            # 퍼센트 발행 (전용 토픽으로)
             percent_map = {0: 100, 1: 67, 2: 33}
             percent_value = percent_map.get(speed, 33)
 
-            percent_topic = STATE_TOPIC.format(deviceID, 'speed')  # 예: commax/Fan1/speed/state
+            percent_topic = f"{HA_TOPIC}/Fan{idx+1}/percentage/state"
             mqtt_client.publish(percent_topic, str(percent_value).encode())
             log(f'[DEBUG] 퍼센트 발행: {percent_topic} -> {percent_value}')
             if mqtt_log:
@@ -575,12 +577,14 @@ def do_work(config, device_list):
                             "unique_id": f"commax_{device.lower()}{idx + 1}",
                             "command_topic": f"{HA_TOPIC}/{device}{idx+1}/power/command",
                             "state_topic": f"{HA_TOPIC}/{device}{idx+1}/power/state",
-                            "percentage_command_topic": "commax/Fan1/speed/command",
-                            "percentage_state_topic": "commax/Fan1/speed/state",
+                            "percentage_command_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/command",
+                            "percentage_state_topic": f"{HA_TOPIC}/{device}{idx+1}/percentage/state",  # ✅ 퍼센트 전용
+                            "preset_mode_state_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/state",       # ✅ 문자열용 (선택)
+                            "preset_modes": ["low", "medium", "high"],
                             "speed_range_min": 1,
                             "speed_range_max": 3,
-                            "payload_off": "OFF",
-                            "payload_on": "ON"
+                            "payload_on": "ON",
+                            "payload_off": "OFF"
                         }
                         mqtt_client.publish(config_topic, json.dumps(payload))
                     else:
