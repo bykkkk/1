@@ -433,25 +433,27 @@ def do_work(config, device_list):
                     await update_state('Fan', idx, 'ON')
                     await update_fan(idx, speed)
 
-                    # 퍼센트 발행 (전용 토픽으로)
-                    percent_map = {0: 100, 1: 67, 2: 33}
-                    percent_value = percent_map.get(speed, 33)
+                    deviceID = 'Fan' + str(idx + 1)
+                    speed_list = ['low', 'medium', 'high']
+    
+                    if isinstance(speed, int) and 0 <= speed < len(speed_list):
+                        speed_str = speed_list[speed]
 
-                    percent_topic = f"{HA_TOPIC}/Fan{idx+1}/percentage/state"
-                    mqtt_client.publish(percent_topic, str(percent_value).encode())
-                    log(f'[DEBUG] 퍼센트 발행: {percent_topic} -> {percent_value}')
-                    if mqtt_log:
-                        log(f'[LOG] ->> HA : {percent_topic} >> {percent_value}')
+                        # preset_mode 상태 발행
+                        preset_topic = STATE_TOPIC.format(deviceID, 'preset_mode')
+                        mqtt_client.publish(preset_topic, speed_str.encode())
+                        log(f'[DEBUG] 프리셋 발행: {preset_topic} -> {speed_str}')
+                        if mqtt_log:
+                            log(f'[LOG] ->> HA : {preset_topic} >> {speed_str}')
 
-
-                    speed_text = ['강', '중', '약'][speed]
-                    wind_topic = f"{HA_TOPIC}/Fan{idx+1}/wind_text/state"
-                    mqtt_client.publish(wind_topic, speed_text.encode(), retain=True)
-                    log(f"[DEBUG] 풍속 상태 MQTT 발행: {wind_topic} -> {speed_text}")
-                    log(f"[DEBUG] 수신된 패킷: {recv_hex} → 속도: {['high', 'medium', 'low'][speed]}")
-
-                else:
-                    log(f"[WARNING] <{device_name}> 인식 불가 패킷: {recv_hex}")
+                        # percentage 상태 발행 (필수)
+                        percent_map = {0: 100, 1: 67, 2: 33}
+                        percent_value = percent_map.get(speed, 33)
+                        percent_topic = f"{HA_TOPIC}/{deviceID}/percentage/state"
+                        mqtt_client.publish(percent_topic, str(percent_value).encode())
+                        log(f'[DEBUG] 퍼센트 발행: {percent_topic} -> {percent_value}')
+                        if mqtt_log:
+                            log(f'[LOG] ->> HA : {percent_topic} >> {percent_value}')
         
             elif device_name == 'Outlet':
                 staNUM = device_list['Outlet']['stateNUM']
