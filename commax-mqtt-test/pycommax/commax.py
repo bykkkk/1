@@ -599,8 +599,8 @@ def do_work(config, device_list):
                             "command_topic": f"{HA_TOPIC}/{device}{idx+1}/power/command",
                             "state_topic": f"{HA_TOPIC}/{device}{idx+1}/power/state",
                             "percentage_command_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/command",
-                            "percentage_state_topic": f"{HA_TOPIC}/{device}{idx+1}/percentage/state",  # ✅ 퍼센트 전용
-                            "preset_mode_state_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/state",       # ✅ 문자열용 (선택)
+                            "percentage_state_topic": f"{HA_TOPIC}/{device}{idx+1}/percentage/state",
+                            "preset_mode_state_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/state",
                             "preset_modes": ["low", "medium", "high"],
                             "speed_range_min": 1,
                             "speed_range_max": 3,
