@@ -421,30 +421,31 @@ def do_work(config, device_list):
                 idx = 0  # Fan1
                 
                 if data in stateON_list:
-                    speed = stateON_list.index(data)  # 0: High, 1: Medium, 2: Low
-                    await update_state('Fan', idx, 'ON')
-                    await update_fan(idx, speed)
+                    stateON_list = DEVICE_LISTS['Fan']['list'][0].get('stateON', [])
+                    idx = 0  # Fan1
 
-                    # 🔵 풍속 텍스트 MQTT 발행
-                    speed_texts = ['강', '중', '약']
-                    speed_text = speed_texts[speed]
-                    wind_topic = f"{HA_TOPIC}/Fan{idx+1}/wind_text/state"
-                    mqtt_client.publish(wind_topic, speed_text.encode(), retain=True)
-                    log(f"[DEBUG] 풍속 상태 MQTT 발행: {wind_topic} -> {speed_text}")
+                    if data in stateON_list:
+                        speed = stateON_list.index(data)  # 0: High, 1: Medium, 2: Low
+                        await update_state('Fan', idx, 'ON')
+                        await update_fan(idx, speed)
 
-                    log(f"[DEBUG] 수신된 패킷: {data} → 속도: {['high', 'medium', 'low'][speed]}")
+                        # 풍속 텍스트 MQTT 발행
+                        speed_text = ['강', '중', '약'][speed]
+                        wind_topic = f"{HA_TOPIC}/Fan{idx+1}/wind_text/state"
+                        mqtt_client.publish(wind_topic, speed_text.encode(), retain=True)
+                        log(f"[DEBUG] 풍속 상태 MQTT 발행: {wind_topic} -> {speed_text}")
 
-                elif data == DEVICE_LISTS['Fan']['list'][0].get('stateOFF'):
-                    await update_state('Fan', idx, 'OFF')
+                    elif data == DEVICE_LISTS['Fan']['list'][0].get('stateOFF'):
+                        await update_state('Fan', idx, 'OFF')
 
-                    # 🔵 꺼짐 상태도 MQTT로 발행
-                    wind_topic = f"{HA_TOPIC}/Fan{idx+1}/wind_text/state"
-                    mqtt_client.publish(wind_topic, "꺼짐".encode(), retain=True)
-                    log(f"[DEBUG] 풍속 상태 MQTT 발행: {wind_topic} -> 꺼짐")
+                        # 꺼짐 상태 텍스트 발행
+                        wind_topic = f"{HA_TOPIC}/Fan{idx+1}/wind_text/state"
+                        mqtt_client.publish(wind_topic, "꺼짐".encode(), retain=True)
+                        log(f"[DEBUG] 풍속 상태 MQTT 발행: {wind_topic} -> 꺼짐")
 
-                else:
-                    log(f"[WARNING] <{device_name}> 기기의 신호를 찾음: {data}")
-                    log('[WARNING] 기기목록에 등록되지 않는 패킷입니다. JSON 파일을 확인하세요..')
+                    else:
+                        log(f"[WARNING] <{device_name}> 기기의 신호를 찾음: {data}")
+                        log('[WARNING] 기기목록에 등록되지 않는 패킷입니다. JSON 파일을 확인하세요..')
             elif device_name == 'Outlet':
                 staNUM = device_list['Outlet']['stateNUM']
                 index = int(data[staNUM - 1]) - 1
@@ -504,12 +505,6 @@ def do_work(config, device_list):
             log(f'[DEBUG] 프리셋 발행: {preset_topic} -> {speed_str}')
             if mqtt_log:
                 log(f'[LOG] ->> HA : {preset_topic} >> {speed_str}')
-
-            # 퍼센트 발행 (retain ✅ 유지)
-            percent_map = {0: 100, 1: 67, 2: 33}
-            percent_value = percent_map.get(speed, 33)
-            percent_topic = f"{HA_TOPIC}/Fan{idx+1}/percentage/state"
-            mqtt_client.publish(percent_topic, str(percent_value).encode(), retain=True)
 
             log(f'[DEBUG] 퍼센트 발행: {percent_topic} -> {percent_value}')
             if mqtt_log:
