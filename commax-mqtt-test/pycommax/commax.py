@@ -433,6 +433,17 @@ def do_work(config, device_list):
                     await update_state('Fan', idx, 'ON')
                     await update_fan(idx, speed)
 
+                    # 퍼센트 발행 (전용 토픽으로)
+                    percent_map = {0: 100, 1: 67, 2: 33}
+                    percent_value = percent_map.get(speed, 33)
+
+                    percent_topic = f"{HA_TOPIC}/Fan{idx+1}/percentage/state"
+                    mqtt_client.publish(percent_topic, str(percent_value).encode())
+                    log(f'[DEBUG] 퍼센트 발행: {percent_topic} -> {percent_value}')
+                    if mqtt_log:
+                        log(f'[LOG] ->> HA : {percent_topic} >> {percent_value}')
+
+
                     speed_text = ['강', '중', '약'][speed]
                     wind_topic = f"{HA_TOPIC}/Fan{idx+1}/wind_text/state"
                     mqtt_client.publish(wind_topic, speed_text.encode(), retain=True)
