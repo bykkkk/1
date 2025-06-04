@@ -497,6 +497,8 @@ def do_work(config, device_list):
             log(f'[DEBUG] 퍼센트 발행: {percent_topic} -> {percent_value}')
             if mqtt_log:
                 log(f'[LOG] ->> HA : {percent_topic} >> {percent_value}')
+            await update_state('Fan', idx, 'ON')
+
 
     async def update_temperature(idx, curTemp, setTemp):
         deviceID = 'Thermo' + str(idx + 1)
