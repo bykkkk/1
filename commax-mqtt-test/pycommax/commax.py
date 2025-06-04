@@ -615,7 +615,9 @@ def do_work(config, device_list):
                         log(f"[DEBUG] 팬 discovery 메시지 발행: {config_topic}")
 
                     else:
-                        config_topic = f'homeassistant/switch/commax_{device.lower()}{idx + 1}/config'
+                        domain = "light" if DEVICE_LISTS[device]["type"] == "light" else "switch" 
+                        config_topic = f'homeassistant/{domain}/commax_{device.lower()}{idx + 1}/config' 
+                        
                         payload = {
                             "device": {
                                 "identifiers": "commax",
