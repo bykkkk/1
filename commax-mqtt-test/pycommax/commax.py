@@ -558,12 +558,14 @@ def do_work(config, device_list):
         if rc == 0:
             log("MQTT 접속 중..")
             client.subscribe([(HA_TOPIC + '/#', 0), (ELFIN_TOPIC + '/recv', 0), (ELFIN_TOPIC + '/send', 1)])
+
             if 'EV' in DEVICE_LISTS:
                 asyncio.run(update_state('EV', 0, 'OFF'))
+
             for device in DEVICE_LISTS:
                 for idx in range(len(DEVICE_LISTS[device]['list'])):
-                    config_topic = f'homeassistant/{DEVICE_LISTS[device]["type"]}/commax_{device.lower()}{idx + 1}/config'
                     if DEVICE_LISTS[device]["type"] == "climate":
+                        config_topic = f'homeassistant/climate/commax_{device.lower()}{idx + 1}/config'
                         payload = {
                             "device": {
                                 "identifiers": "commax",
@@ -580,35 +582,40 @@ def do_work(config, device_list):
                             "temp_cmd_t": f"{HA_TOPIC}/{device}{idx+1}/setTemp/command",
                             "temp_stat_t": f"{HA_TOPIC}/{device}{idx+1}/setTemp/state",
                             "curr_temp_t": f"{HA_TOPIC}/{device}{idx+1}/curTemp/state",
-                            "min_temp":"10",
-                            "max_temp":"30",
-                            "temp_step":"1",
-                            "modes":["off", "heat"],
+                            "min_temp": "10",
+                            "max_temp": "30",
+                            "temp_step": "1",
+                            "modes": ["off", "heat"],
                             "mode_state_template": "{% set modes = {'OFF': 'off', 'ON': 'heat'} %} {{modes[value] if value in modes.keys() else 'off'}}"
                         }
+                        mqtt_client.publish(config_topic, json.dumps(payload), retain=True)
+
                     elif DEVICE_LISTS[device]["type"] == "fan":
-                        config_topic = f'homeassistant/fan/commax_{device.lower()}{idx + 1}/config'
+                        config_topic = f'homeassistant/fan/commax_fan{idx + 1}/config'
                         payload = {
                             "device": {
                                 "identifiers": "commax",
                                 "name": "코맥스 월패드",
                                 "manufacturer": "commax",
                             },
-                            "name": f"{device}{idx+1}",
-                            "unique_id": f"commax_{device.lower()}{idx + 1}",
-                            "command_topic": f"{HA_TOPIC}/{device}{idx+1}/power/command",
-                            "state_topic": f"{HA_TOPIC}/{device}{idx+1}/power/state",
-                            "percentage_command_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/command",
-                            "percentage_state_topic": f"{HA_TOPIC}/{device}{idx+1}/percentage/state",
-                            "preset_mode_state_topic": f"{HA_TOPIC}/{device}{idx+1}/speed/state",
+                            "name": f"Fan{idx+1}",
+                            "unique_id": f"commax_fan{idx + 1}",
+                            "command_topic": f"{HA_TOPIC}/Fan{idx+1}/power/command",
+                            "state_topic": f"{HA_TOPIC}/Fan{idx+1}/power/state",
+                            "percentage_command_topic": f"{HA_TOPIC}/Fan{idx+1}/speed/command",
+                            "percentage_state_topic": f"{HA_TOPIC}/Fan{idx+1}/percentage/state",
+                            "preset_mode_state_topic": f"{HA_TOPIC}/Fan{idx+1}/speed/state",
                             "preset_modes": ["low", "medium", "high"],
                             "speed_range_min": 1,
                             "speed_range_max": 3,
                             "payload_on": "ON",
                             "payload_off": "OFF"
                         }
-                        mqtt_client.publish(config_topic, json.dumps(payload))
+                        mqtt_client.publish(config_topic, json.dumps(payload), retain=True)
+                        log(f"[DEBUG] 팬 discovery 메시지 발행: {config_topic}")
+
                     else:
+                        config_topic = f'homeassistant/switch/commax_{device.lower()}{idx + 1}/config'
                         payload = {
                             "device": {
                                 "identifiers": "commax",
@@ -621,12 +628,15 @@ def do_work(config, device_list):
                             "object_id": f'commax_{device.lower()}{idx + 1}',
                             "unique_id": f'commax_{device.lower()}{idx + 1}',
                             "cmd_t": "~/command",
-                            "stat_t": "~/state"}
+                            "stat_t": "~/state"
+                        }
                         if device == "Outlet":
                             payload["device_class"] = 'outlet'
                             payload["entity_category"] = 'diagnostic'
 
-                    mqtt_client.publish(config_topic, json.dumps(payload))
+                        mqtt_client.publish(config_topic, json.dumps(payload), retain=True)
+
+                    # Outlet Watt 센서 구성 추가
                     if device == "Outlet":
                         config_topic = f'homeassistant/sensor/commax_{device}{idx + 1}_watt/config'
                         payload = {
@@ -643,14 +653,16 @@ def do_work(config, device_list):
                             "stat_t": f'{HA_TOPIC}/{device}{idx + 1}/watt/state',
                             "unit_of_measurement": "W"
                         }
-                        mqtt_client.publish(config_topic, json.dumps(payload))
+                        mqtt_client.publish(config_topic, json.dumps(payload), retain=True)
         else:
-            errcode = {1: 'Connection refused - incorrect protocol version',
-                       2: 'Connection refused - invalid client identifier',
-                       3: 'Connection refused - server unavailable',
-                       4: 'Connection refused - bad username or password',
-                       5: 'Connection refused - not authorised'}
-            log(errcode[rc])
+            errcode = {
+                1: 'Connection refused - incorrect protocol version',
+                2: 'Connection refused - invalid client identifier',
+                3: 'Connection refused - server unavailable',
+                4: 'Connection refused - bad username or password',
+                5: 'Connection refused - not authorised'
+            }
+            log(errcode.get(rc, "Unknown error"))
 
     def on_message(client, userdata, msg):
         topics = msg.topic.split('/')
