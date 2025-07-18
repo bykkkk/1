@@ -613,7 +613,7 @@ def do_work(config, device_list):
                                 "name": "코맥스 월패드",
                                 "manufacturer": "commax",
                             },
-                            "device_class": 'energy',
+                            "device_class": 'power',
                             "name": f'{device}{idx + 1} Watt',
                             "object_id": f'commax_{device.lower()}{idx + 1}_watt',
                             "unique_id": f'commax_{device.lower()}{idx + 1}_watt',
