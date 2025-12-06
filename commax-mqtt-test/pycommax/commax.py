@@ -31,6 +31,25 @@ def checksum(input_hex):
     except:
         return None
 
+def make_thermo_hex(curTemp, setTemp, state):
+    device = device_list['Thermo']
+
+    # 전원 ON/OFF
+    if state in ['ON', 'OFF']:
+        hex_cmd = device.get('command' + state)
+        return checksum(hex_cmd)
+
+    # 온도 변경
+    if state == 'CHANGE':
+        hex_cmd = device.get('commandCHANGE')
+        pos = device['chaTemp']   # 온도 자리
+        val = f"{int(setTemp):02X}"
+        hex_cmd = hex_cmd[:pos-1] + val + hex_cmd[pos+1:]
+        return checksum(hex_cmd)
+
+    return None
+
+
 def find_device(config):
     with open(data_dir + '/commax_devinfo.json') as file:
         dev_info = json.load(file)
@@ -114,32 +133,8 @@ def do_work(config, device_list):
         return checksum(input_hex)
 
     def make_hex_temp(k, curTemp, setTemp, state):
-        if state in ['OFF', 'ON', 'CHANGE']:
-            tmp_hex = device_list['Thermo'].get('command' + state)
-            change = device_list['Thermo'].get('commandNUM')
-            tmp_hex = make_hex(k, tmp_hex, change)
-            if state == 'CHANGE':
-                setT = pad(setTemp)
-                chaTnum = device_list['Thermo'].get('chaTemp')
-                tmp_hex = tmp_hex[:chaTnum - 1] + setT + tmp_hex[chaTnum + 1:]
-            return checksum(tmp_hex)
-        else:
-            tmp_hex = device_list['Thermo'].get(state)
-            change = device_list['Thermo'].get('stateNUM')
-            tmp_hex = make_hex(k, tmp_hex, change)
-            setT = pad(setTemp)
-            curT = pad(curTemp)
-            curTnum = device_list['Thermo'].get('curTemp')
-            setTnum = device_list['Thermo'].get('setTemp')
-            tmp_hex = tmp_hex[:setTnum - 1] + setT + tmp_hex[setTnum + 1:]
-            tmp_hex = tmp_hex[:curTnum - 1] + curT + tmp_hex[curTnum + 1:]
-            if state == 'stateOFF':
-                return checksum(tmp_hex)
-            elif state == 'stateON':
-                tmp_hex2 = tmp_hex[:3] + str(3) + tmp_hex[4:]
-                return [checksum(tmp_hex), checksum(tmp_hex2)]
-            else:
-                return None
+    # Thermo logic removed — function left for other devices
+    return None
 
     def make_device_info(dev_name, device_list):
         num = device_list[dev_name].get('Number', 0)
@@ -241,7 +236,7 @@ def do_work(config, device_list):
             curTemp = HOMESTATE.get(topics[1] + 'curTemp')
             setTemp = HOMESTATE.get(topics[1] + 'setTemp')
             if topics[2] == 'power':
-                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, value.upper())
+                sendcmd = make_thermo_hex(curTemp, setTemp, value.upper())
                 recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'state' + value.upper())]
                 if sendcmd:
                     QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
@@ -252,7 +247,7 @@ def do_work(config, device_list):
                     value = int(float(value))
                     if value != int(setTemp):
                         setTemp = value
-                        sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'CHANGE')
+                        sendcmd = make_thermo_hex(curTemp, setTemp, 'CHANGE')
                         recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateON')]
                         if sendcmd:
                             QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
@@ -339,7 +334,7 @@ def do_work(config, device_list):
                                     log('[DEBUG] {} is already set: {}'.format(topics[1], value))
                             else:
                                 setTemp = value
-                                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'CHANGE')
+                                sendcmd = make_thermo_hex(curTemp, setTemp, 'CHANGE')
                                 recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateON')]
                                 if sendcmd:
                                     QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
