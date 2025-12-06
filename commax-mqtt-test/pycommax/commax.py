@@ -133,8 +133,9 @@ def do_work(config, device_list):
         return checksum(input_hex)
 
     def make_hex_temp(k, curTemp, setTemp, state):
-    # Thermo logic removed — function left for other devices
+    # Thermo logic removed — placeholder for other devices
     return None
+
 
     def make_device_info(dev_name, device_list):
         num = device_list[dev_name].get('Number', 0)
