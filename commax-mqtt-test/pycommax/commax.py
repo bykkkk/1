@@ -214,6 +214,7 @@ def do_work(config, device_list):
         device_raw = topics[1]  # 예: "Fan1"
         device = re.sub(r'\d+', '', device_raw)  # 예: "Fan"
         idx = int(''.join(re.findall(r'\d+', topics[1])))  # "Fan1" → 1
+
     
         matched_device_key = None
         for dev in DEVICE_LISTS.keys():
@@ -231,11 +232,6 @@ def do_work(config, device_list):
         value = value.lower()
 
         cur_state = HOMESTATE.get(key)
-        
-        # 난방기의 경우 'heat'를 'ON'으로 변환
-        if device == 'Thermo':
-            value = 'on' if value == 'heat' else value
-
         if cur_state and value.upper() == cur_state:
             if debug:
                 log('[DEBUG] {} is already set: {}'.format(key, value))
@@ -244,24 +240,13 @@ def do_work(config, device_list):
         if device == 'Thermo':
             curTemp = HOMESTATE.get(topics[1] + 'curTemp')
             setTemp = HOMESTATE.get(topics[1] + 'setTemp')
-            
             if topics[2] == 'power':
-                # --- [수정된 난방기 ON 로직] ---
-                # 난방기를 켤 때 (ON), setTemp를 포함한 CHANGE 명령을 보냄 (일반적으로 난방기 ON 명령은 온도 정보를 포함해야 함)
-                if value.upper() == 'ON':
-                    sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'CHANGE') 
-                    recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateON')]
-                # 난방기를 끌 때 (OFF)
-                elif value.upper() == 'OFF':
-                    sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'OFF')
-                    recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateOFF')]
-                # -----------------------------
-                
+                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, value.upper())
+                recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'state' + value.upper())]
                 if sendcmd:
                     QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
                     if debug:
                         log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
-                        
             elif topics[2] == 'setTemp':
                 try:
                     value = int(float(value))
@@ -275,7 +260,6 @@ def do_work(config, device_list):
                                 log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
                 except ValueError:
                     log(f"[WARNING] Invalid temperature value: {value}")
-                    
         elif device == 'Fan':
             if topics[2] == 'power':
                 sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value.upper())
@@ -288,7 +272,7 @@ def do_work(config, device_list):
             elif topics[2] == 'speed':
                 try:
                     log(f"[DEBUG] 받은 speed value: {value} (type: {type(value)})")
-                    percent = int(value) 
+                    percent = int(value)  # ← 이제 확실히 1~3임을 알고 있음
                   
                     if percent == 0:
                         # 전원 끄기 신호로 처리
@@ -307,9 +291,8 @@ def do_work(config, device_list):
 
                 except Exception as e:
                     log(f"[ERROR] 팬 speed 처리 실패: {value} → {e}")
-                # --- [수정: 불필요한 else 구문 제거] ---
-                # else:
-                #     log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
+                else:
+                    log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
 
 
         else:
@@ -323,37 +306,84 @@ def do_work(config, device_list):
                 if debug:
                     log('[DEBUG] There is no command for {}'.format('/'.join(topics)))         
         
-        # 아래 중복된 로직은 주석 처리합니다.
-        # if mqtt_log:
-        #     log('[LOG] HA ->> : {} -> {}'.format('/'.join(topics), value))
+        
+        if mqtt_log:
+            log('[LOG] HA ->> : {} -> {}'.format('/'.join(topics), value))
 
-        # device = re.sub(r'\d+', '', topics[1]).lower()
+        device = re.sub(r'\d+', '', topics[1]).lower()
 
-        # if device in DEVICE_LISTS:
-        #     key = topics[1] + topics[2]
-        #     idx = int(''.join(re.findall('\d', topics[1])))
-        #     cur_state = HOMESTATE.get(key)
-        #     value = 'ON' if value == 'heat' else value.upper()
-        #     if cur_state:
-        #         if value == cur_state:
-        #             if debug:
-        #                 log('[DEBUG] {} is already set: {}'.format(key, value))
-        #         else:
-        #             if device == 'Thermo':
-        #                 # ... (중복된 난방기 로직 주석 처리)
-        #                 pass 
-        #             elif device == 'Fan':
-        #                 # ... (중복된 Fan 로직 주석 처리)
-        #                 pass
-        #             else:
-        #                 # ... (중복된 일반 디바이스 로직 주석 처리)
-        #                 pass
-        #     else:
-        #         if debug:
-        #             log('[DEBUG] There is no command about {}'.format('/'.join(topics)))
-        # else:
-        #     if debug:
-        #         log('[DEBUG] There is no command for {}'.format('/'.join(topics)))
+        if device in DEVICE_LISTS:
+            key = topics[1] + topics[2]
+            idx = int(''.join(re.findall('\d', topics[1])))
+            cur_state = HOMESTATE.get(key)
+            value = 'ON' if value == 'heat' else value.upper()
+            if cur_state:
+                if value == cur_state:
+                    if debug:
+                        log('[DEBUG] {} is already set: {}'.format(key, value))
+                else:
+                    if device == 'Thermo':
+                        curTemp = HOMESTATE.get(topics[1] + 'curTemp')
+                        setTemp = HOMESTATE.get(topics[1] + 'setTemp')
+                        if topics[2] == 'power':
+                            sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, value)
+                            recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'state' + value)]
+                            if sendcmd:
+                                QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                                if debug:
+                                    log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+                        elif topics[2] == 'setTemp':
+                            value = int(float(value))
+                            if value == int(setTemp):
+                                if debug:
+                                    log('[DEBUG] {} is already set: {}'.format(topics[1], value))
+                            else:
+                                setTemp = value
+                                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'CHANGE')
+                                recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateON')]
+                                if sendcmd:
+                                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                                    if debug:
+                                        log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+
+                    elif device == 'Fan':
+                        if topics[2] == 'power':
+                            sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value)
+                            recvcmd = [DEVICE_LISTS[device]['list'][idx-1].get('state' + value)]
+                            QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                            if debug:
+                                log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+                        elif topics[2] == 'speed':
+                             speed_list = ['low', 'medium', 'high']
+                             value = value.lower()
+                             if value in speed_list:
+                                 index = speed_list.index(value)
+                                 try:
+                                     sendcmd = DEVICE_LISTS[device]['list'][idx-1]['commandCHANGE'][index]
+                                     recvcmd = [DEVICE_LISTS[device]['list'][idx-1]['stateON'][index]]
+                                     QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                                     if debug:
+                                         log('[DEBUG] Fan speed change queued: {} => {}'.format(sendcmd, recvcmd))
+                                 except Exception as e:
+                                     log(f"[ERROR] 팬 속도 변경 실패: {e}")
+                             else:
+                                 log(f"[WARNING] 알 수 없는 팬 속도 요청: {value}")
+                    else:
+                        sendcmd = DEVICE_LISTS[device]['list'][idx-1].get('command' + value)
+                        if sendcmd:
+                            recvcmd = [DEVICE_LISTS[device]['list'][idx-1].get('state' + value, 'NULL')]
+                            QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
+                            if debug:
+                                log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+                        else:
+                            if debug:
+                                log('[DEBUG] There is no command for {}'.format('/'.join(topics)))
+            else:
+                if debug:
+                    log('[DEBUG] There is no command about {}'.format('/'.join(topics)))
+        else:
+            if debug:
+                log('[DEBUG] There is no command for {}'.format('/'.join(topics)))
 
     async def slice_raw_data(raw_data):
         if elfin_log:
@@ -392,7 +422,7 @@ def do_work(config, device_list):
                     speed = stateON_list.index(data)  # 0: High, 1: Medium, 2: Low
                     await update_state('Fan', 0, 'ON')  # 추가: 상태를 ON으로 갱신
                     await update_fan(0, speed)
-                    log(f"[DEBUG] 수신된 패킷: {data} → 속도: {['low', 'medium', 'high'][speed]}") # 로그 수정 (index 0, 1, 2 에 맞게)
+                    log(f"[DEBUG] 수신된 패킷: {data} → 속도: {['high', 'medium', 'low'][speed]}")
                 elif data == DEVICE_LISTS['Fan']['list'][0].get('stateOFF'):
                     await update_state('Fan', 0, 'OFF')
                 else:
@@ -446,8 +476,7 @@ def do_work(config, device_list):
 
     async def update_fan(idx, speed):
         deviceID = 'Fan' + str(idx + 1)
-        # 0, 1, 2 인덱스에 맞춰 low, medium, high를 발행하도록 재배치
-        speed_list = ['low', 'medium', 'high'] 
+        speed_list = ['low', 'medium', 'high']
 
         if isinstance(speed, int) and 0 <= speed < len(speed_list):
             # 🔵 preset_mode: 문자열 발행
@@ -631,66 +660,45 @@ def do_work(config, device_list):
                     except:
                         log('[WARNING] 기기 재시작 오류! 기기 상태를 확인하세요.')
                     COLLECTDATA['LastRecv'] = time.time_ns()
-            
-                # --- [추가된: Command Queue 처리 로직] ---
-                if QUEUE:
-                    que = QUEUE[0]
-                    sendcmd = que['sendcmd']
-                    
-                    # 시리얼 통신 대기 시간을 고려하여 마지막 수신 후 0.5초가 지났는지 확인
-                    if time.time_ns() - COLLECTDATA['LastRecv'] > 500000000: 
-                        
-                        # 명령 재시도 횟수 제한 (5회 시도 후 제거)
-                        if que['count'] < 5:
-                            # EW11로 명령 발행
-                            mqtt_client.publish(ELFIN_SEND_TOPIC, bytes.fromhex(sendcmd), qos=1)
-                            que['count'] += 1
-                            if elfin_log:
-                                log(f'[SIGNAL] ->> EW11 : {sendcmd} (Try: {que["count"]})')
+                elif time.time_ns() - COLLECTDATA['LastRecv'] > 100000000:
+                    if QUEUE:
+                        send_data = QUEUE.pop(0)
+                        if elfin_log:
+                            log('[SIGNAL] 신호 전송: {}'.format(send_data))
+                        mqtt_client.publish(ELFIN_SEND_TOPIC, bytes.fromhex(send_data['sendcmd']))
+                        if send_data['count'] < 5:
+                            send_data['count'] += 1
+                            QUEUE.append(send_data)
                         else:
-                            log(f'[WARNING] Command failed after 5 tries, deleting from QUEUE: {sendcmd}')
-                            QUEUE.pop(0)
+                            if elfin_log:
+                                log('[SIGNAL] Send over 5 times. Delete queue: {}'.format(send_data))
+            except Exception as err:
+                log('[ERROR] send_to_elfin(): {}'.format(err))
+                return True
+            await asyncio.sleep(0.01)
 
-                # 0.5초 대기
-                await asyncio.sleep(0.5)
+    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, 'commax-mqtt')
+    mqtt_client.username_pw_set(config['mqtt_id'], config['mqtt_password'])
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_message = on_message
+    mqtt_client.connect_async(config['mqtt_server'])
+    mqtt_client.loop_start()
 
-            except Exception as e:
-                log(f"[ERROR] send_to_elfin loop error: {e}")
-                await asyncio.sleep(5)
+    loop = asyncio.get_event_loop()
+    while True:
+        loop.run_until_complete(send_to_elfin())
+    loop.close()
+    mqtt_client.loop_stop()
 
-
-    def main_loop(config, device_list):
-        # ... (이전 코드에는 없었지만, main_loop가 있었다고 가정하고 MQTT 클라이언트 설정을 유지)
-        
-        mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, 'commax-mqtt')
-        mqtt_client.username_pw_set(config['mqtt_id'], config['mqtt_password'])
-        mqtt_client.on_connect = on_connect
-        mqtt_client.on_message = on_message
-        mqtt_client.connect_async(config['mqtt_server'])
-        mqtt_client.loop_start()
-
-        loop = asyncio.get_event_loop()
-        loop.create_task(send_to_elfin())
-        
-        try:
-            loop.run_forever()
-        except KeyboardInterrupt:
-            pass
-        finally:
-            mqtt_client.loop_stop()
-            mqtt_client.disconnect()
-            loop.close()
-
-
-    main_loop(config, device_list)
-
-# 이 파일은 모듈로 동작하므로 main 실행 블록은 생략합니다.
-# if __name__ == '__main__':
-#     with open(config_dir + '/config.json') as file:
-#         config = json.load(file)
-#     if config['find_device']:
-#         find_device(config)
-#     else:
-#         with open(share_dir + '/commax_found_device.json') as file:
-#             device_list = json.load(file)
-#         do_work(config, device_list)
+if __name__ == '__main__':
+    with open(config_dir + '/options.json') as file:
+        CONFIG = json.load(file)
+    try:
+        with open(share_dir + '/commax_found_device_new.json') as file:
+            log('기기 정보 파일을 찾음: /share/commax_found_device_new.json')
+            OPTION = json.load(file)
+    except IOError:
+        log('기기 정보 파일이 없습니다.: /share/commax_found_device_new.json')
+        OPTION = find_device(CONFIG)
+    while True:
+        do_work(CONFIG, OPTION)
