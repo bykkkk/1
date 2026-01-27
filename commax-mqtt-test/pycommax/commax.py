@@ -113,7 +113,7 @@ def do_work(config, device_list):
                 pass
         return checksum(input_hex)
 
-    def make_hex_temp(k, curTemp, setTemp, state):
+  def make_hex_temp(k, curTemp, setTemp, state):
         # setTemp로 들어오는 명령을 CHANGE로 처리
         if state == 'setTemp':
             state = 'CHANGE'
@@ -130,7 +130,6 @@ def do_work(config, device_list):
             # ON 또는 CHANGE일 때 온도값 삽입
             if state in ['CHANGE', 'ON']:
                 try:
-                    # 온도값이 없으면 기본값 22
                     val = 22
                     if setTemp and float(setTemp) != 0:
                         val = int(float(setTemp))
