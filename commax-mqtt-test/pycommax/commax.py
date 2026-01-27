@@ -240,13 +240,54 @@ def do_work(config, device_list):
         if device == 'Thermo':
             curTemp = HOMESTATE.get(topics[1] + 'curTemp')
             setTemp = HOMESTATE.get(topics[1] + 'setTemp')
+
+            # 온도값 방어 (HA 재시작 직후 None 방지)
+            if curTemp is None:
+                curTemp = 20
+            if setTemp is None:
+                setTemp = 22
+
             if topics[2] == 'power':
-                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, value.upper())
-                recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'state' + value.upper())]
-                if sendcmd:
-                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
-                    if debug:
-                        log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
+                # OFF → ON 시 : 난방 ON + 목표온도 재전송
+                if value.upper() == 'ON':
+                    # 1) 난방 ON
+                    sendcmd_on = make_hex_temp(idx - 1, curTemp, setTemp, 'ON')
+                    recvcmd_on = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateON')]
+
+                    if sendcmd_on:
+                        QUEUE.append({
+                            'sendcmd': sendcmd_on,
+                            'recvcmd': recvcmd_on,
+                            'count': 0
+                        })
+                        if debug:
+                            log('[DEBUG] Thermo ON queued: {}'.format(sendcmd_on))
+
+                    # 2) 목표 온도 재전송 (핵심)
+                    sendcmd_temp = make_hex_temp(idx - 1, curTemp, setTemp, 'CHANGE')
+                    recvcmd_temp = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateON')]
+
+                    if sendcmd_temp:
+                        QUEUE.append({
+                            'sendcmd': sendcmd_temp,
+                            'recvcmd': recvcmd_temp,
+                            'count': 0
+                        })
+                        if debug:
+                            log('[DEBUG] Thermo TEMP re-send queued: {}'.format(sendcmd_temp))
+                else:
+                    # OFF는 기존 단일 명령
+                    sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'OFF')
+                    recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'stateOFF')]
+
+                    if sendcmd:
+                        QUEUE.append({
+                            'sendcmd': sendcmd,
+                            'recvcmd': recvcmd,
+                            'count': 0
+                        })
+                        if debug:
+                            log('[DEBUG] Thermo OFF queued: {}'.format(sendcmd))
             elif topics[2] == 'setTemp':
                 try:
                     value = int(float(value))
