@@ -237,25 +237,14 @@ def do_work(config, device_list):
                 log('[DEBUG] {} is already set: {}'.format(key, value))
             return
 
-        
         if device == 'Thermo':
-            curTemp = HOMESTATE.get(topics[1] + 'curTemp') or 20
-            setTemp = HOMESTATE.get(topics[1] + 'setTemp') or 22
-
+            curTemp = HOMESTATE.get(topics[1] + 'curTemp')
+            setTemp = HOMESTATE.get(topics[1] + 'setTemp')
             if topics[2] == 'power':
-                if value.upper() == 'ON':
-                    # 🔥 ACK 무시 강제 난방 트리거
-                    sendcmd_on = make_hex_temp(idx - 1, curTemp, setTemp, 'ON')
-                    if sendcmd_on:
-                        QUEUE.append({'sendcmd': sendcmd_on, 'recvcmd': [], 'count': 0})
-
-                    sendcmd_temp = make_hex_temp(idx - 1, curTemp, setTemp, 'CHANGE')
-                    if sendcmd_temp:
-                        QUEUE.append({'sendcmd': sendcmd_temp, 'recvcmd': [], 'count': 0})
-                else:
-                    sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'OFF')
-                    if sendcmd:
-                        QUEUE.append({'sendcmd': sendcmd, 'recvcmd': [], 'count': 0})
+                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, value.upper())
+                recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'state' + value.upper())]
+                if sendcmd:
+                    QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
                     if debug:
                         log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
             elif topics[2] == 'setTemp':
