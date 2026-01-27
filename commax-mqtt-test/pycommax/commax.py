@@ -115,23 +115,45 @@ def do_work(config, device_list):
 
 
     def make_hex_temp(k, curTemp, setTemp, state):
+        # setTemp 명령이 들어오면 CHANGE로 인식하도록 처리
+        if state == 'setTemp':
+            state = 'CHANGE'
+
         if state in ['OFF', 'ON', 'CHANGE']:
+            # 기본 명령어 가져오기
             tmp_hex = device_list['Thermo'].get('command' + state)
             change = device_list['Thermo'].get('commandNUM')
+            
+            # JSON에 commandON/OFF 등이 없으면 예외처리
+            if not tmp_hex:
+                log(f'[ERROR] No command found for state: {state}')
+                return None
+
+            # 룸 넘버(k) 적용
             tmp_hex = make_hex(k, tmp_hex, change)
             
-            # CHANGE 뿐만 아니라 ON 명령일 때도 온도를 삽입하도록 조건 추가
-            if state in ['CHANGE', 'ON']: 
-                # 만약 setTemp가 없거나 0이면 기본값 22도로 설정 (안전장치)
-                if not setTemp or int(setTemp) == 0:
-                    setTemp = 22
+            # ON 또는 CHANGE 명령일 때 온도값 삽입
+            if state in ['CHANGE', 'ON']:
+                try:
+                    # 온도가 없거나 0이면 기본값 22도로 설정
+                    if not setTemp or float(setTemp) == 0:
+                        target_temp = 22
+                    else:
+                        target_temp = int(float(setTemp))
                     
-                setT = pad(setTemp)
-                chaTnum = device_list['Thermo'].get('chaTemp')
-                if chaTnum: # json에 chaTemp 키가 있는지 확인
-                    tmp_hex = tmp_hex[:chaTnum - 1] + setT + tmp_hex[chaTnum + 1:]
+                    # 10진수 온도를 16진수 문자열로 변환 (예: 22 -> "16")
+                    # pad 함수가 없다면 아래와 같이 포맷팅 사용
+                    setT = format(target_temp, '02X') 
                     
+                    chaTnum = device_list['Thermo'].get('chaTemp')
+                    if chaTnum:
+                        # 패킷의 온도 위치(chaTemp)에 16진수 온도값 덮어쓰기
+                        tmp_hex = tmp_hex[:chaTnum - 1] + setT + tmp_hex[chaTnum + 1:]
+                except Exception as e:
+                    log(f'[ERROR] Temp conversion failed: {e}')
+
             return checksum(tmp_hex)
+        return None
         else:
             tmp_hex = device_list['Thermo'].get(state)
             change = device_list['Thermo'].get('stateNUM')
