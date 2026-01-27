@@ -113,15 +113,24 @@ def do_work(config, device_list):
                 pass
         return checksum(input_hex)
 
+
     def make_hex_temp(k, curTemp, setTemp, state):
         if state in ['OFF', 'ON', 'CHANGE']:
             tmp_hex = device_list['Thermo'].get('command' + state)
             change = device_list['Thermo'].get('commandNUM')
             tmp_hex = make_hex(k, tmp_hex, change)
-            if state == 'CHANGE':
+            
+            # CHANGE 뿐만 아니라 ON 명령일 때도 온도를 삽입하도록 조건 추가
+            if state in ['CHANGE', 'ON']: 
+                # 만약 setTemp가 없거나 0이면 기본값 22도로 설정 (안전장치)
+                if not setTemp or int(setTemp) == 0:
+                    setTemp = 22
+                    
                 setT = pad(setTemp)
                 chaTnum = device_list['Thermo'].get('chaTemp')
-                tmp_hex = tmp_hex[:chaTnum - 1] + setT + tmp_hex[chaTnum + 1:]
+                if chaTnum: # json에 chaTemp 키가 있는지 확인
+                    tmp_hex = tmp_hex[:chaTnum - 1] + setT + tmp_hex[chaTnum + 1:]
+                    
             return checksum(tmp_hex)
         else:
             tmp_hex = device_list['Thermo'].get(state)
