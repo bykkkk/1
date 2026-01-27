@@ -113,64 +113,39 @@ def do_work(config, device_list):
                 pass
         return checksum(input_hex)
 
-
     def make_hex_temp(k, curTemp, setTemp, state):
-        # setTemp 명령이 들어오면 CHANGE로 인식하도록 처리
+        # setTemp로 들어오는 명령을 CHANGE로 처리
         if state == 'setTemp':
             state = 'CHANGE'
 
         if state in ['OFF', 'ON', 'CHANGE']:
-            # 기본 명령어 가져오기
             tmp_hex = device_list['Thermo'].get('command' + state)
             change = device_list['Thermo'].get('commandNUM')
             
-            # JSON에 commandON/OFF 등이 없으면 예외처리
             if not tmp_hex:
-                log(f'[ERROR] No command found for state: {state}')
                 return None
 
-            # 룸 넘버(k) 적용
             tmp_hex = make_hex(k, tmp_hex, change)
             
-            # ON 또는 CHANGE 명령일 때 온도값 삽입
+            # ON 또는 CHANGE일 때 온도값 삽입
             if state in ['CHANGE', 'ON']:
                 try:
-                    # 온도가 없거나 0이면 기본값 22도로 설정
-                    if not setTemp or float(setTemp) == 0:
-                        target_temp = 22
-                    else:
-                        target_temp = int(float(setTemp))
+                    # 온도값이 없으면 기본값 22
+                    val = 22
+                    if setTemp and float(setTemp) != 0:
+                        val = int(float(setTemp))
                     
-                    # 10진수 온도를 16진수 문자열로 변환 (예: 22 -> "16")
-                    # pad 함수가 없다면 아래와 같이 포맷팅 사용
-                    setT = format(target_temp, '02X') 
-                    
+                    setT = format(val, '02X')
                     chaTnum = device_list['Thermo'].get('chaTemp')
+                    
                     if chaTnum:
-                        # 패킷의 온도 위치(chaTemp)에 16진수 온도값 덮어쓰기
                         tmp_hex = tmp_hex[:chaTnum - 1] + setT + tmp_hex[chaTnum + 1:]
-                except Exception as e:
-                    log(f'[ERROR] Temp conversion failed: {e}')
+                except:
+                    pass
 
             return checksum(tmp_hex)
-        return None
         else:
-            tmp_hex = device_list['Thermo'].get(state)
-            change = device_list['Thermo'].get('stateNUM')
-            tmp_hex = make_hex(k, tmp_hex, change)
-            setT = pad(setTemp)
-            curT = pad(curTemp)
-            curTnum = device_list['Thermo'].get('curTemp')
-            setTnum = device_list['Thermo'].get('setTemp')
-            tmp_hex = tmp_hex[:setTnum - 1] + setT + tmp_hex[setTnum + 1:]
-            tmp_hex = tmp_hex[:curTnum - 1] + curT + tmp_hex[curTnum + 1:]
-            if state == 'stateOFF':
-                return checksum(tmp_hex)
-            elif state == 'stateON':
-                tmp_hex2 = tmp_hex[:3] + str(3) + tmp_hex[4:]
-                return [checksum(tmp_hex), checksum(tmp_hex2)]
-            else:
-                return None
+            return None
 
     def make_device_info(dev_name, device_list):
         num = device_list[dev_name].get('Number', 0)
