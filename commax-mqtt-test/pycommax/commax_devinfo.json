@@ -22,8 +22,8 @@
     "setTemp": 9,
     "chaTemp": 7,
 
-    "stateOFF": "8280012322000048",
-    "stateON": "8281012322000049",
+    "stateOFF": "848001232200004A",
+    "stateON": "848101232200004B",
     "stateNUM": 6,
     "stateONOFFNUM": 4
   },
