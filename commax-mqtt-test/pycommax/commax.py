@@ -112,7 +112,8 @@ def do_work(config, device_list):
             except:
                 pass
         return checksum(input_hex)
-def make_hex_temp(k, curTemp, setTemp, state):
+
+    def make_hex_temp(k, curTemp, setTemp, state):
         # setTemp로 들어오는 명령을 CHANGE로 처리
         if state == 'setTemp':
             state = 'CHANGE'
@@ -174,6 +175,7 @@ def make_hex_temp(k, curTemp, setTemp, state):
             return {'type': device_list[dev_name]['type'], 'list': arr}
         else:
             return None
+
     DEVICE_LISTS = {}
     for name in device_list:
         device_info = make_device_info(name, device_list)
