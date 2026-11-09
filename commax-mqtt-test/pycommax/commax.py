@@ -466,9 +466,14 @@ def do_work(config, device_list):
         if onoff != HOMESTATE.get(key):
             HOMESTATE[key] = onoff
             topic = STATE_TOPIC.format(deviceID, state)
-            mqtt_client.publish(topic, onoff.encode())
+            # Home Assistant MQTT climate modes must be published as
+            # standard HVAC modes (off/heat), not the internal ON/OFF values.
+            mqtt_state = onoff
+            if device == 'Thermo':
+                mqtt_state = 'heat' if onoff == 'ON' else 'off'
+            mqtt_client.publish(topic, mqtt_state.encode())
             if mqtt_log:
-                log('[LOG] ->> HA : {} >> {}'.format(topic, onoff))
+                log('[LOG] ->> HA : {} >> {}'.format(topic, mqtt_state))
         else:
             if debug:
                 log('[DEBUG] {} is already set: {}'.format(deviceID, onoff))
@@ -564,7 +569,7 @@ def do_work(config, device_list):
                             "max_temp":"30",
                             "temp_step":"1",
                             "modes":["off", "heat"],
-                            "mode_state_template": "{% set modes = {'OFF': 'off', 'ON': 'heat'} %} {{modes[value] if value in modes.keys() else 'off'}}"
+                            "mode_state_template": "{% set modes = {'OFF': 'off', 'ON': 'heat', 'off': 'off', 'heat': 'heat'} %} {{modes[value] if value in modes else 'off'}}"
                         }
                     elif DEVICE_LISTS[device]["type"] == "fan":
                         config_topic = f'homeassistant/fan/commax_{device.lower()}{idx + 1}/config'
