@@ -231,8 +231,12 @@ def do_work(config, device_list):
         key = topics[1] + topics[2]
         value = value.lower()
 
+        # MQTT climate sends standard HA modes ('heat'/'off'), while the
+        # Commax packet builder expects the internal values ('ON'/'OFF').
+        command_value = {'heat': 'ON', 'off': 'OFF'}.get(value, value.upper())
+
         cur_state = HOMESTATE.get(key)
-        if cur_state and value.upper() == cur_state:
+        if cur_state and command_value == cur_state:
             if debug:
                 log('[DEBUG] {} is already set: {}'.format(key, value))
             return
@@ -241,8 +245,11 @@ def do_work(config, device_list):
             curTemp = HOMESTATE.get(topics[1] + 'curTemp')
             setTemp = HOMESTATE.get(topics[1] + 'setTemp')
             if topics[2] == 'power':
-                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, value.upper())
-                recvcmd = [make_hex_temp(idx - 1, curTemp, setTemp, 'state' + value.upper())]
+                sendcmd = make_hex_temp(idx - 1, curTemp, setTemp, command_value)
+                recvcmd = make_hex_temp(idx - 1, curTemp, setTemp, 'state' + command_value)
+                # stateON can be a list of two valid response packets.
+                if not isinstance(recvcmd, list):
+                    recvcmd = [recvcmd]
                 if sendcmd:
                     QUEUE.append({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'count': 0})
                     if debug:
@@ -642,8 +649,8 @@ def do_work(config, device_list):
                 asyncio.run(recv_from_HA(topics, msg.payload.decode('utf-8')))
             elif topics[0] == ELFIN_TOPIC and topics[-1] == 'recv':
                 asyncio.run(slice_raw_data(msg.payload.hex().upper()))
-        except:
-            pass
+        except Exception as err:
+            log('[ERROR] on_message(): {}'.format(err))
 
     async def send_to_elfin():
         while True:
